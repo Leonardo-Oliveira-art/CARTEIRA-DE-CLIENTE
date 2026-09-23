@@ -56,7 +56,7 @@
 
   /* Resumo financeiro */
   .summary{
-    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);
     border-bottom:1px solid var(--line);
   }
   .summary div{background:var(--paper);padding:18px 28px}
@@ -64,6 +64,7 @@
   .summary strong{display:block;font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:2px}
   .summary .pos{color:var(--accent)}
   .summary .neg{color:var(--warn)}
+  .summary .bad{color:var(--danger)}
 
   /* Layout principal */
   main{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 170px)}
@@ -81,13 +82,15 @@
   .list li button.active{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
   .list .name{font-weight:600}
   .list .sub{color:var(--muted);font-size:13px;grid-column:1}
-  .list .fee{font-size:13px;color:var(--muted);grid-row:1/3;grid-column:2;align-self:center;text-align:right}
+  .list .fee{font-size:13px;color:var(--muted);grid-row:1/3;grid-column:2;align-self:center;text-align:right;display:grid;gap:4px;justify-items:end}
   .list-empty{padding:24px 16px;color:var(--muted);font-size:14px}
 
   .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;font-weight:500}
   .tag-ativo{background:var(--accent-soft);color:var(--accent)}
   .tag-pausado{background:var(--warn-soft);color:var(--warn)}
   .tag-encerrado{background:#ECEEED;color:var(--muted)}
+  .tag-atrasado{background:#F8E4E4;color:var(--danger)}
+  .tag-fora{background:transparent;color:var(--muted);padding-left:0}
 
   /* Detalhe */
   .detail{padding:28px;max-width:960px;width:100%}
@@ -124,6 +127,13 @@
   td.num,th.num{text-align:right}
   .pay-toggle{border:none;background:none;padding:0}
   .row-actions{display:flex;gap:4px;justify-content:flex-end}
+  .year-nav{display:flex;align-items:center;gap:4px}
+  .year-nav strong{min-width:52px;text-align:center;font-size:15px}
+  tr.current td{background:#F7FAF8}
+  tr.current td:first-child{font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}
+  tr.off td{color:#A3ACA8}
+  .panel-note{padding:12px 20px 0;color:var(--muted);font-size:13px}
+  .filters .row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 
   /* Modais */
   dialog{
@@ -155,6 +165,7 @@
 
   @media (max-width:860px){
     .summary{grid-template-columns:repeat(2,1fr)}
+    .summary div:last-child{grid-column:1/-1}
     main{grid-template-columns:1fr}
     aside{border-right:none;border-bottom:1px solid var(--line)}
     .list{max-height:320px}
@@ -189,18 +200,27 @@
   <div><span>Receita mensal</span><strong id="sumMensal" class="pos">R$ 0,00</strong></div>
   <div><span>Recebido este mês</span><strong id="sumRecebido">R$ 0,00</strong></div>
   <div><span>Em aberto</span><strong id="sumAberto" class="neg">R$ 0,00</strong></div>
+  <div><span>Clientes atrasados</span><strong id="sumAtrasados" class="bad">0</strong></div>
 </section>
 
 <main>
   <aside>
     <div class="filters">
       <input type="search" id="search" placeholder="Buscar por nome, loja ou telefone">
-      <select id="filterStatus">
-        <option value="">Todos os status</option>
-        <option value="ativo">Ativos</option>
-        <option value="pausado">Pausados</option>
-        <option value="encerrado">Encerrados</option>
-      </select>
+      <div class="row">
+        <select id="filterStatus" aria-label="Status do cliente">
+          <option value="">Todos os status</option>
+          <option value="ativo">Ativos</option>
+          <option value="pausado">Pausados</option>
+          <option value="encerrado">Encerrados</option>
+        </select>
+        <select id="filterPay" aria-label="Pagamento deste mês">
+          <option value="">Pagamento do mês</option>
+          <option value="pago">Pagos</option>
+          <option value="pendente">Pendentes</option>
+          <option value="atrasado">Atrasados</option>
+        </select>
+      </div>
     </div>
     <ul class="list" id="list"></ul>
   </aside>
@@ -285,6 +305,29 @@
   </form>
 </dialog>
 
+<!-- Modal mensalidade -->
+<dialog id="dlgMonth">
+  <form method="dialog" id="formMonth">
+    <div class="dlg-head"><h2 id="dlgMonthTitle">Mensalidade</h2></div>
+    <div class="dlg-body">
+      <label>Situação
+        <select name="status">
+          <option value="pendente">Pendente</option>
+          <option value="pago">Pago</option>
+        </select>
+      </label>
+      <label>Valor (R$)<input name="valor" type="number" step="0.01" min="0" required></label>
+      <label>Data para pagamento<input name="vencimento" type="date" required></label>
+      <label>Pago em<input name="pagoEm" type="date"></label>
+      <label class="full">Observação<input name="obs" placeholder="Pagou via Pix, pediu para adiar..."></label>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar mensalidade</button>
+    </div>
+  </form>
+</dialog>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
@@ -296,6 +339,8 @@
   let selectedId = db.clientes[0]?.id || null;
   let editingClientId = null;
   let editingPayId = null;
+  let editingMonth = null;
+  let viewYear = new Date().getFullYear();
 
   /* ---------- Armazenamento ---------- */
   function load(){
@@ -330,17 +375,73 @@
   }
   function getClient(id){ return db.clientes.find(c => c.id === id); }
 
+  /* ---------- Mensalidades ---------- */
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const ymNow = () => today().slice(0,7);
+  const ymLabel = ym => { const [y,m] = ym.split('-'); return monthNames[Number(m)-1] + ' de ' + y; };
+  const payTag = {
+    pago:['tag-ativo','Pago'], pendente:['tag-pausado','Pendente'], atrasado:['tag-atrasado','Atrasado'],
+    avencer:['tag-encerrado','A vencer'], fora:['tag-fora','—']
+  };
+
+  function dueDate(c, ym){
+    const [y,m] = ym.split('-').map(Number);
+    const last = new Date(y, m, 0).getDate();
+    const d = Math.min(Number(c.vencimento) || 10, last);
+    return `${ym}-${String(d).padStart(2,'0')}`;
+  }
+
+  // Situação de um mês: pago, pendente, atrasado, a vencer ou fora (sem cobrança)
+  function monthInfo(c, ym){
+    const rec = (c.mensalidades || {})[ym];
+    const venc = rec?.vencimento || dueDate(c, ym);
+    const valor = rec ? Number(rec.valor) || 0 : Number(c.mensalidade) || 0;
+    const startYm = (c.inicio || '').slice(0,7);
+    let status;
+    if(rec?.status === 'pago') status = 'pago';
+    else if(rec?.status === 'pendente') status = venc < today() ? 'atrasado' : 'pendente';
+    else if(c.status !== 'ativo' || !Number(c.mensalidade) || (startYm && ym < startYm)) status = 'fora';
+    else if(ym > ymNow()) status = 'avencer';
+    else status = venc < today() ? 'atrasado' : 'pendente';
+    return { ym, rec, venc, valor, status, pagoEm: rec?.pagoEm || '', obs: rec?.obs || '' };
+  }
+
+  function monthsRange(from, to){
+    const out = []; let [y,m] = from.split('-').map(Number); const [ty,tm] = to.split('-').map(Number);
+    while((y < ty || (y === ty && m <= tm)) && out.length < 600){
+      out.push(`${y}-${String(m).padStart(2,'0')}`); if(++m > 12){ m = 1; y++; }
+    }
+    return out;
+  }
+  // Todos os meses do cliente até o mês atual
+  function pastMonths(c){
+    const start = [(c.inicio || '').slice(0,7), ...Object.keys(c.mensalidades || {})].filter(Boolean).sort()[0] || ymNow();
+    return monthsRange(start, ymNow());
+  }
+  function clientDebt(c){
+    return pastMonths(c).map(ym => monthInfo(c, ym)).filter(i => i.status === 'pendente' || i.status === 'atrasado');
+  }
+
   /* ---------- Render ---------- */
   function render(){ renderSummary(); renderList(); renderDetail(); }
 
   function renderSummary(){
     const ativos = db.clientes.filter(c => c.status === 'ativo');
     const mes = today().slice(0,7);
-    let recebido = 0, aberto = 0;
-    db.clientes.forEach(c => (c.pagamentos||[]).forEach(p => {
-      if(p.pago && p.data?.slice(0,7) === mes) recebido += Number(p.valor)||0;
-      if(!p.pago) aberto += Number(p.valor)||0;
-    }));
+    let recebido = 0, aberto = 0, atrasados = 0;
+    db.clientes.forEach(c => {
+      (c.pagamentos||[]).forEach(p => {
+        if(p.pago && p.data?.slice(0,7) === mes) recebido += Number(p.valor)||0;
+        if(!p.pago) aberto += Number(p.valor)||0;
+      });
+      Object.values(c.mensalidades || {}).forEach(r => {
+        if(r.status === 'pago' && r.pagoEm?.slice(0,7) === mes) recebido += Number(r.valor)||0;
+      });
+      const debt = clientDebt(c);
+      aberto += debt.reduce((s,i) => s + i.valor, 0);
+      if(debt.some(i => i.status === 'atrasado')) atrasados++;
+    });
+    $('#sumAtrasados').textContent = atrasados;
     $('#sumAtivos').textContent = ativos.length;
     $('#sumMensal').textContent = brl(ativos.reduce((s,c) => s + (Number(c.mensalidade)||0), 0));
     $('#sumRecebido').textContent = brl(recebido);
@@ -350,8 +451,10 @@
   function renderList(){
     const q = $('#search').value.trim().toLowerCase();
     const st = $('#filterStatus').value;
+    const fp = $('#filterPay').value;
     const items = db.clientes
       .filter(c => !st || c.status === st)
+      .filter(c => !fp || monthInfo(c, ymNow()).status === fp)
       .filter(c => !q || [c.nome,c.loja,c.telefone,c.cidade].join(' ').toLowerCase().includes(q))
       .sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
 
@@ -362,7 +465,11 @@
     list.innerHTML = items.map(c => `
       <li><button data-id="${c.id}" class="${c.id===selectedId?'active':''}">
         <span class="name">${esc(c.nome)}</span>
-        <span class="fee">${c.mensalidade ? brl(c.mensalidade)+'/mês' : ''}</span>
+        <span class="fee">${(() => {
+          const i = monthInfo(c, ymNow());
+          return (c.mensalidade ? `<span>${brl(c.mensalidade)}/mês</span>` : '') +
+            (i.status !== 'fora' ? `<span class="tag ${payTag[i.status][0]}">${payTag[i.status][1]}</span>` : '');
+        })()}</span>
         <span class="sub">${esc(c.loja || c.telefone || '—')}</span>
       </button></li>`).join('');
   }
@@ -381,7 +488,11 @@
 
     const pays = [...(c.pagamentos||[])].sort((a,b) => (b.data||'').localeCompare(a.data||''));
     const totalPago = pays.filter(p=>p.pago).reduce((s,p)=>s+(Number(p.valor)||0),0);
-    const totalAberto = pays.filter(p=>!p.pago).reduce((s,p)=>s+(Number(p.valor)||0),0);
+    const totalMensPago = Object.values(c.mensalidades || {}).filter(r => r.status === 'pago').reduce((s,r) => s + (Number(r.valor)||0), 0);
+    const debt = clientDebt(c);
+    const totalRecebido = totalPago + totalMensPago;
+    const totalAberto = pays.filter(p=>!p.pago).reduce((s,p)=>s+(Number(p.valor)||0),0) + debt.reduce((s,i) => s + i.valor, 0);
+    const months = Array.from({length:12}, (_,k) => monthInfo(c, `${viewYear}-${String(k+1).padStart(2,'0')}`));
     const tel = digits(c.telefone);
     const wa = tel ? `https://wa.me/${tel.length<=11 ? '55'+tel : tel}` : '';
     const link = c.dominio ? (/^https?:\/\//.test(c.dominio) ? c.dominio : 'https://' + c.dominio) : '';
@@ -427,7 +538,7 @@
             <div><dt>Mensalidade</dt><dd>${brl(c.mensalidade)}</dd></div>
             <div><dt>Vencimento</dt><dd>${c.vencimento ? 'Dia ' + esc(c.vencimento) : '—'}</dd></div>
             <div><dt>Forma</dt><dd>${esc(c.formaPagamento)||'—'}</dd></div>
-            <div><dt>Total recebido</dt><dd style="color:var(--accent)">${brl(totalPago)}</dd></div>
+            <div><dt>Total recebido</dt><dd style="color:var(--accent)">${brl(totalRecebido)}</dd></div>
             <div><dt>Em aberto</dt><dd style="color:${totalAberto?'var(--warn)':'inherit'}">${brl(totalAberto)}</dd></div>
           </dl>
         </div>
@@ -435,7 +546,33 @@
 
       <div class="panel">
         <div class="panel-head">
-          <h3>Lançamentos</h3>
+          <h3>Mensalidades</h3>
+          <div class="year-nav">
+            <button class="btn btn-sm btn-ghost" data-act="year-prev" aria-label="Ano anterior">‹</button>
+            <strong>${viewYear}</strong>
+            <button class="btn btn-sm btn-ghost" data-act="year-next" aria-label="Próximo ano">›</button>
+          </div>
+        </div>
+        ${!Number(c.mensalidade) && !Object.keys(c.mensalidades||{}).length ? `<p class="panel-note">Defina uma mensalidade em Editar para acompanhar os meses. Você também pode registrar um mês avulso.</p>` : ''}
+        <div class="table-wrap"><table>
+          <thead><tr><th>Mês</th><th>Data para pagamento</th><th class="num">Valor</th><th>Situação</th><th>Pago em</th><th></th></tr></thead>
+          <tbody>${months.map(i => `
+            <tr class="${i.ym === ymNow() ? 'current' : ''} ${i.status === 'fora' ? 'off' : ''}">
+              <td>${monthNames[Number(i.ym.slice(5))-1]}</td>
+              <td>${i.status === 'fora' ? '—' : fmtDate(i.venc)}</td>
+              <td class="num">${i.status === 'fora' ? '—' : brl(i.valor)}</td>
+              <td>${i.status === 'fora' ? '—' : `<button class="pay-toggle" data-act="toggle-month" data-ym="${i.ym}" title="${i.status === 'pago' ? 'Marcar como pendente' : 'Marcar como pago hoje'}">
+                <span class="tag ${payTag[i.status][0]}">${payTag[i.status][1]}</span></button>`}</td>
+              <td>${i.pagoEm ? fmtDate(i.pagoEm) : '—'}${i.obs ? `<br><small style="color:var(--muted)">${esc(i.obs)}</small>` : ''}</td>
+              <td><div class="row-actions"><button class="btn btn-sm btn-ghost" data-act="edit-month" data-ym="${i.ym}">Editar</button></div></td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Outros lançamentos</h3>
           <button class="btn btn-sm btn-primary" data-act="add-pay">Registrar lançamento</button>
         </div>
         ${pays.length ? `
@@ -454,7 +591,7 @@
               </div></td>
             </tr>`).join('')}
           </tbody>
-        </table></div>` : `<div class="panel-body" style="color:var(--muted)">Nenhum lançamento. Registre entradas, mensalidades ou cobranças pendentes.</div>`}
+        </table></div>` : `<div class="panel-body" style="color:var(--muted)">Nenhum lançamento. Use para a entrada do projeto, serviços extras ou cobranças avulsas.</div>`}
       </div>
 
       ${c.obs ? `<div class="panel"><div class="panel-head"><h3>Observações</h3></div><div class="panel-body"><p class="about">${esc(c.obs)}</p></div></div>` : ''}
@@ -485,7 +622,7 @@
       Object.assign(getClient(editingClientId), data, { atualizadoEm: new Date().toISOString() });
       toast('Cliente atualizado');
     }else{
-      const c = { id: uid(), ...data, pagamentos: [], criadoEm: new Date().toISOString() };
+      const c = { id: uid(), ...data, pagamentos: [], mensalidades: {}, criadoEm: new Date().toISOString() };
       db.clientes.push(c); selectedId = c.id;
       toast('Cliente salvo');
     }
@@ -500,8 +637,8 @@
     const p = pid ? c.pagamentos.find(x => x.id === pid) : null;
     $('#dlgPayTitle').textContent = p ? 'Editar lançamento' : 'Registrar lançamento';
     f.data.value = p?.data || today();
-    f.valor.value = p ? p.valor : (c.mensalidade || '');
-    f.descricao.value = p?.descricao || (c.mensalidade ? 'Mensalidade' : '');
+    f.valor.value = p ? p.valor : (c.valorProjeto || '');
+    f.descricao.value = p?.descricao || (c.valorProjeto ? 'Entrada do projeto' : '');
     f.pago.checked = p ? !!p.pago : true;
     $('#dlgPay').showModal();
     f.valor.focus();
@@ -517,21 +654,53 @@
     $('#dlgPay').close(); toast('Lançamento salvo'); save();
   });
 
+  function openMonth(ym){
+    const c = getClient(selectedId); if(!c) return;
+    editingMonth = ym;
+    const i = monthInfo(c, ym), f = $('#formMonth').elements;
+    $('#dlgMonthTitle').textContent = ymLabel(ym);
+    f.status.value = i.status === 'pago' ? 'pago' : 'pendente';
+    f.valor.value = i.valor || c.mensalidade || '';
+    f.vencimento.value = i.venc;
+    f.pagoEm.value = i.pagoEm;
+    f.obs.value = i.obs;
+    $('#dlgMonth').showModal();
+  }
+
+  $('#formMonth [name=status]').addEventListener('change', e => {
+    const f = e.target.form.elements;
+    if(e.target.value === 'pago' && !f.pagoEm.value) f.pagoEm.value = today();
+    if(e.target.value === 'pendente') f.pagoEm.value = '';
+  });
+
+  $('#formMonth').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = e.target.elements, c = getClient(selectedId);
+    c.mensalidades = c.mensalidades || {};
+    const status = f.status.value;
+    c.mensalidades[editingMonth] = {
+      status, valor: Number(f.valor.value)||0, vencimento: f.vencimento.value,
+      pagoEm: status === 'pago' ? (f.pagoEm.value || today()) : '', obs: f.obs.value.trim()
+    };
+    $('#dlgMonth').close(); toast('Mensalidade salva'); save();
+  });
+
   /* ---------- Eventos gerais ---------- */
   $('#btnNew').addEventListener('click', () => openClient());
   $('#search').addEventListener('input', renderList);
   $('#filterStatus').addEventListener('change', renderList);
+  $('#filterPay').addEventListener('change', renderList);
   document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 
   $('#list').addEventListener('click', e => {
     const b = e.target.closest('button[data-id]'); if(!b) return;
-    selectedId = b.dataset.id; renderList(); renderDetail();
+    selectedId = b.dataset.id; viewYear = new Date().getFullYear(); renderList(); renderDetail();
     if(window.innerWidth <= 860) $('#detail').scrollIntoView({behavior:'smooth'});
   });
 
   $('#detail').addEventListener('click', e => {
     const b = e.target.closest('[data-act]'); if(!b) return;
-    const c = getClient(selectedId), pid = b.dataset.pid;
+    const c = getClient(selectedId), pid = b.dataset.pid, ym = b.dataset.ym;
     switch(b.dataset.act){
       case 'new': openClient(); break;
       case 'edit': openClient(selectedId); break;
@@ -540,6 +709,18 @@
           db.clientes = db.clientes.filter(x => x.id !== selectedId);
           selectedId = db.clientes[0]?.id || null; toast('Cliente excluído'); save();
         } break;
+      case 'year-prev': viewYear--; renderDetail(); break;
+      case 'year-next': viewYear++; renderDetail(); break;
+      case 'edit-month': openMonth(ym); break;
+      case 'toggle-month': {
+        const i = monthInfo(c, ym);
+        c.mensalidades = c.mensalidades || {};
+        const pago = i.status !== 'pago';
+        c.mensalidades[ym] = { ...(i.rec || {}), valor: i.valor, vencimento: i.venc,
+          status: pago ? 'pago' : 'pendente', pagoEm: pago ? today() : '' };
+        toast(pago ? `${ymLabel(ym)} marcado como pago` : `${ymLabel(ym)} voltou para pendente`);
+        save(); break;
+      }
       case 'add-pay': openPay(); break;
       case 'edit-pay': openPay(pid); break;
       case 'toggle-pay': { const p = c.pagamentos.find(x => x.id === pid); p.pago = !p.pago; save(); break; }
@@ -569,7 +750,7 @@
       const data = JSON.parse(await file.text());
       const lista = Array.isArray(data) ? data : data.clientes;
       if(!Array.isArray(lista)) throw new Error();
-      lista.forEach(c => { c.id = c.id || uid(); c.pagamentos = c.pagamentos || []; c.status = c.status || 'ativo'; c.nome = c.nome || 'Sem nome'; });
+      lista.forEach(c => { c.id = c.id || uid(); c.pagamentos = c.pagamentos || []; c.mensalidades = c.mensalidades || {}; c.status = c.status || 'ativo'; c.nome = c.nome || 'Sem nome'; });
 
       let substituir = true;
       if(db.clientes.length){
