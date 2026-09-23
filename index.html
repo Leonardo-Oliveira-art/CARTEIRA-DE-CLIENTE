@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carteira de Clientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F6F5;
+    --paper:#FFFFFF;
+    --ink:#1F2A27;
+    --muted:#6A7571;
+    --line:#E1E6E3;
+    --accent:#2F6F5E;
+    --accent-soft:#E6F0EC;
+    --warn:#A6612B;
+    --warn-soft:#F7EDE3;
+    --danger:#B23A3A;
+    --radius-lg:14px;
+    --radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;
+    font-variant-numeric:tabular-nums;
+  }
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Topo */
+  header{
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    padding:20px 28px;background:var(--paper);border-bottom:1px solid var(--line);
+  }
+  header h1{font-size:20px;font-weight:700;letter-spacing:-.01em}
+  header p{color:var(--muted);font-size:13px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  .btn{
+    border:1px solid var(--line);background:var(--paper);padding:9px 14px;border-radius:var(--radius-sm);
+    font-weight:500;font-size:14px;transition:background .15s,border-color .15s;
+  }
+  .btn:hover{background:var(--bg)}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-primary:hover{background:#265C4E}
+  .btn-ghost{border-color:transparent;background:transparent;color:var(--muted)}
+  .btn-ghost:hover{background:var(--bg);color:var(--ink)}
+  .btn-danger{color:var(--danger)}
+  .btn-sm{padding:6px 10px;font-size:13px}
+
+  /* Resumo financeiro */
+  .summary{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  .summary div{background:var(--paper);padding:18px 28px}
+  .summary span{display:block;color:var(--muted);font-size:13px}
+  .summary strong{display:block;font-size:26px;font-weight:600;letter-spacing:-.02em;margin-top:2px}
+  .summary .pos{color:var(--accent)}
+  .summary .neg{color:var(--warn)}
+
+  /* Layout principal */
+  main{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 170px)}
+  aside{background:var(--paper);border-right:1px solid var(--line);display:flex;flex-direction:column}
+  .filters{padding:16px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+  .filters input,.filters select{
+    width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--bg);
+  }
+  .list{list-style:none;overflow-y:auto;flex:1}
+  .list li button{
+    width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);
+    padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:2px 10px;
+  }
+  .list li button:hover{background:var(--bg)}
+  .list li button.active{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+  .list .name{font-weight:600}
+  .list .sub{color:var(--muted);font-size:13px;grid-column:1}
+  .list .fee{font-size:13px;color:var(--muted);grid-row:1/3;grid-column:2;align-self:center;text-align:right}
+  .list-empty{padding:24px 16px;color:var(--muted);font-size:14px}
+
+  .tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;font-weight:500}
+  .tag-ativo{background:var(--accent-soft);color:var(--accent)}
+  .tag-pausado{background:var(--warn-soft);color:var(--warn)}
+  .tag-encerrado{background:#ECEEED;color:var(--muted)}
+
+  /* Detalhe */
+  .detail{padding:28px;max-width:960px;width:100%}
+  .empty-state{padding:80px 28px;text-align:center;color:var(--muted)}
+  .empty-state h2{color:var(--ink);font-size:18px;margin-bottom:6px}
+  .empty-state .btn{margin-top:16px}
+
+  .detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+  .detail-head h2{font-size:26px;letter-spacing:-.02em;line-height:1.2}
+  .detail-head .store{color:var(--muted);margin-top:2px}
+
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-lg);margin-bottom:18px}
+  .panel-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line)}
+  .panel-head h3{font-size:15px;font-weight:600}
+  .panel-body{padding:18px 20px}
+
+  .info{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px 24px}
+  .info dt{color:var(--muted);font-size:13px}
+  .info dd{font-weight:500;word-break:break-word}
+  .info a{color:var(--accent);text-decoration:none}
+  .info a:hover{text-decoration:underline}
+  .about{white-space:pre-wrap;color:var(--ink);max-width:72ch}
+  .about.none{color:var(--muted)}
+
+  .money{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px}
+  .money dt{color:var(--muted);font-size:13px}
+  .money dd{font-size:20px;font-weight:600;letter-spacing:-.01em}
+
+  .table-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th{text-align:left;font-weight:500;color:var(--muted);font-size:13px;padding:10px 20px;border-bottom:1px solid var(--line)}
+  td{padding:11px 20px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  td.num,th.num{text-align:right}
+  .pay-toggle{border:none;background:none;padding:0}
+  .row-actions{display:flex;gap:4px;justify-content:flex-end}
+
+  /* Modais */
+  dialog{
+    border:none;border-radius:var(--radius-lg);padding:0;width:min(640px,calc(100vw - 32px));
+    max-height:calc(100vh - 48px);box-shadow:0 20px 60px rgba(31,42,39,.18);color:var(--ink);
+  }
+  dialog::backdrop{background:rgba(31,42,39,.35)}
+  dialog form{display:flex;flex-direction:column;max-height:calc(100vh - 48px)}
+  .dlg-head{padding:18px 24px;border-bottom:1px solid var(--line)}
+  .dlg-head h2{font-size:18px}
+  .dlg-body{padding:20px 24px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+  .dlg-body .full{grid-column:1/-1}
+  .dlg-body h4{grid-column:1/-1;font-size:14px;font-weight:600;padding-top:8px;border-top:1px solid var(--line);margin-top:4px}
+  .dlg-body h4:first-child{border-top:none;padding-top:0;margin-top:0}
+  label{display:grid;gap:5px;font-size:13px;color:var(--muted);font-weight:500}
+  label input,label select,label textarea{
+    padding:9px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--paper);color:var(--ink);font-size:15px;
+  }
+  label textarea{resize:vertical;min-height:90px}
+  .check{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px}
+  .dlg-foot{padding:14px 24px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:var(--radius-sm);font-size:14px;
+    transition:opacity .2s,transform .2s;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:860px){
+    .summary{grid-template-columns:repeat(2,1fr)}
+    main{grid-template-columns:1fr}
+    aside{border-right:none;border-bottom:1px solid var(--line)}
+    .list{max-height:320px}
+    .detail{padding:20px 16px}
+    header{padding:16px}
+    .summary div{padding:14px 16px}
+    .summary strong{font-size:21px}
+  }
+  @media (max-width:520px){
+    .dlg-body{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Carteira de Clientes</h1>
+    <p id="saveInfo">Dados salvos neste navegador</p>
+  </div>
+  <div class="actions">
+    <button class="btn" id="btnImport">Importar JSON</button>
+    <button class="btn" id="btnExport">Baixar JSON</button>
+    <button class="btn btn-primary" id="btnNew">Novo cliente</button>
+    <input type="file" id="fileInput" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<section class="summary" aria-label="Resumo financeiro">
+  <div><span>Clientes ativos</span><strong id="sumAtivos">0</strong></div>
+  <div><span>Receita mensal</span><strong id="sumMensal" class="pos">R$ 0,00</strong></div>
+  <div><span>Recebido este mês</span><strong id="sumRecebido">R$ 0,00</strong></div>
+  <div><span>Em aberto</span><strong id="sumAberto" class="neg">R$ 0,00</strong></div>
+</section>
+
+<main>
+  <aside>
+    <div class="filters">
+      <input type="search" id="search" placeholder="Buscar por nome, loja ou telefone">
+      <select id="filterStatus">
+        <option value="">Todos os status</option>
+        <option value="ativo">Ativos</option>
+        <option value="pausado">Pausados</option>
+        <option value="encerrado">Encerrados</option>
+      </select>
+    </div>
+    <ul class="list" id="list"></ul>
+  </aside>
+  <section class="detail" id="detail"></section>
+</main>
+
+<!-- Modal cliente -->
+<dialog id="dlgClient">
+  <form method="dialog" id="formClient">
+    <div class="dlg-head"><h2 id="dlgClientTitle">Novo cliente</h2></div>
+    <div class="dlg-body">
+      <h4>Contato</h4>
+      <label>Nome *<input name="nome" required></label>
+      <label>Loja / empresa<input name="loja"></label>
+      <label>Telefone / WhatsApp<input name="telefone" type="tel" placeholder="(11) 99999-9999"></label>
+      <label>E-mail<input name="email" type="email"></label>
+      <label>Cidade<input name="cidade"></label>
+      <label>Status
+        <select name="status">
+          <option value="ativo">Ativo</option>
+          <option value="pausado">Pausado</option>
+          <option value="encerrado">Encerrado</option>
+        </select>
+      </label>
+
+      <h4>Sistema</h4>
+      <label>Hospedado em
+        <select name="hospedagem">
+          <option value="">Não definido</option>
+          <option>Cloudflare Pages</option>
+          <option>GitHub Pages</option>
+          <option>Vercel</option>
+          <option>Netlify</option>
+          <option>Hostinger</option>
+          <option>HostGator</option>
+          <option>Servidor próprio</option>
+          <option>Outro</option>
+        </select>
+      </label>
+      <label>Link / domínio<input name="dominio" placeholder="https://"></label>
+      <label>Tipo de sistema<input name="tipoSistema" placeholder="Site, loja virtual, cardápio..."></label>
+      <label>Data de início<input name="inicio" type="date"></label>
+      <label class="full">Sobre a empresa<textarea name="sobre" placeholder="O que a empresa faz, público, detalhes combinados..."></textarea></label>
+
+      <h4>Valores</h4>
+      <label>Valor do projeto (R$)<input name="valorProjeto" type="number" step="0.01" min="0" placeholder="0,00"></label>
+      <label>Mensalidade (R$)<input name="mensalidade" type="number" step="0.01" min="0" placeholder="0,00"></label>
+      <label>Dia de vencimento<input name="vencimento" type="number" min="1" max="31" placeholder="10"></label>
+      <label>Forma de pagamento
+        <select name="formaPagamento">
+          <option value="">Não definida</option>
+          <option>Pix</option>
+          <option>Boleto</option>
+          <option>Cartão</option>
+          <option>Transferência</option>
+          <option>Dinheiro</option>
+        </select>
+      </label>
+      <label class="full">Observações<textarea name="obs" placeholder="Acessos, pendências, lembretes..."></textarea></label>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+      <button type="submit" class="btn btn-primary" id="btnSaveClient">Salvar cliente</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Modal pagamento -->
+<dialog id="dlgPay">
+  <form method="dialog" id="formPay">
+    <div class="dlg-head"><h2 id="dlgPayTitle">Registrar lançamento</h2></div>
+    <div class="dlg-body">
+      <label>Data<input name="data" type="date" required></label>
+      <label>Valor (R$)<input name="valor" type="number" step="0.01" min="0" required></label>
+      <label class="full">Descrição<input name="descricao" placeholder="Mensalidade de outubro, entrada do projeto..."></label>
+      <label class="check full"><input type="checkbox" name="pago" checked> Já foi pago</label>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+      <button type="submit" class="btn btn-primary">Salvar lançamento</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  const KEY = 'carteira-clientes-v1';
+  const $ = s => document.querySelector(s);
+
+  let db = load();
+  let selectedId = db.clientes[0]?.id || null;
+  let editingClientId = null;
+  let editingPayId = null;
+
+  /* ---------- Armazenamento ---------- */
+  function load(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      const data = raw ? JSON.parse(raw) : null;
+      return data && Array.isArray(data.clientes) ? data : { clientes: [] };
+    }catch{ return { clientes: [] }; }
+  }
+  function save(){
+    try{
+      localStorage.setItem(KEY, JSON.stringify(db));
+      $('#saveInfo').textContent = 'Salvo às ' + new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    }catch{
+      $('#saveInfo').textContent = 'Não foi possível salvar no navegador. Baixe o JSON.';
+    }
+    render();
+  }
+
+  /* ---------- Utilidades ---------- */
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  const brl = n => (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('pt-BR') : '—';
+  const today = () => new Date().toISOString().slice(0,10);
+  const digits = s => String(s||'').replace(/\D/g,'');
+  const statusLabel = {ativo:'Ativo',pausado:'Pausado',encerrado:'Encerrado'};
+
+  function toast(msg){
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+  function getClient(id){ return db.clientes.find(c => c.id === id); }
+
+  /* ---------- Render ---------- */
+  function render(){ renderSummary(); renderList(); renderDetail(); }
+
+  function renderSummary(){
+    const ativos = db.clientes.filter(c => c.status === 'ativo');
+    const mes = today().slice(0,7);
+    let recebido = 0, aberto = 0;
+    db.clientes.forEach(c => (c.pagamentos||[]).forEach(p => {
+      if(p.pago && p.data?.slice(0,7) === mes) recebido += Number(p.valor)||0;
+      if(!p.pago) aberto += Number(p.valor)||0;
+    }));
+    $('#sumAtivos').textContent = ativos.length;
+    $('#sumMensal').textContent = brl(ativos.reduce((s,c) => s + (Number(c.mensalidade)||0), 0));
+    $('#sumRecebido').textContent = brl(recebido);
+    $('#sumAberto').textContent = brl(aberto);
+  }
+
+  function renderList(){
+    const q = $('#search').value.trim().toLowerCase();
+    const st = $('#filterStatus').value;
+    const items = db.clientes
+      .filter(c => !st || c.status === st)
+      .filter(c => !q || [c.nome,c.loja,c.telefone,c.cidade].join(' ').toLowerCase().includes(q))
+      .sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+
+    const list = $('#list');
+    if(!db.clientes.length){ list.innerHTML = '<li class="list-empty">Nenhum cliente cadastrado ainda.</li>'; return; }
+    if(!items.length){ list.innerHTML = '<li class="list-empty">Nenhum cliente encontrado com esse filtro.</li>'; return; }
+
+    list.innerHTML = items.map(c => `
+      <li><button data-id="${c.id}" class="${c.id===selectedId?'active':''}">
+        <span class="name">${esc(c.nome)}</span>
+        <span class="fee">${c.mensalidade ? brl(c.mensalidade)+'/mês' : ''}</span>
+        <span class="sub">${esc(c.loja || c.telefone || '—')}</span>
+      </button></li>`).join('');
+  }
+
+  function renderDetail(){
+    const el = $('#detail');
+    const c = getClient(selectedId);
+    if(!c){
+      el.innerHTML = `<div class="empty-state">
+        <h2>${db.clientes.length ? 'Selecione um cliente' : 'Cadastre seu primeiro cliente'}</h2>
+        <p>${db.clientes.length ? 'Escolha alguém na lista para ver os detalhes.' : 'Nome, loja, contato, hospedagem e valores ficam todos aqui.'}</p>
+        ${db.clientes.length ? '' : '<button class="btn btn-primary" data-act="new">Novo cliente</button>'}
+      </div>`;
+      return;
+    }
+
+    const pays = [...(c.pagamentos||[])].sort((a,b) => (b.data||'').localeCompare(a.data||''));
+    const totalPago = pays.filter(p=>p.pago).reduce((s,p)=>s+(Number(p.valor)||0),0);
+    const totalAberto = pays.filter(p=>!p.pago).reduce((s,p)=>s+(Number(p.valor)||0),0);
+    const tel = digits(c.telefone);
+    const wa = tel ? `https://wa.me/${tel.length<=11 ? '55'+tel : tel}` : '';
+    const link = c.dominio ? (/^https?:\/\//.test(c.dominio) ? c.dominio : 'https://' + c.dominio) : '';
+
+    el.innerHTML = `
+      <div class="detail-head">
+        <div>
+          <span class="tag tag-${c.status}">${statusLabel[c.status]||c.status}</span>
+          <h2 style="margin-top:8px">${esc(c.nome)}</h2>
+          ${c.loja ? `<p class="store">${esc(c.loja)}</p>` : ''}
+        </div>
+        <div class="actions">
+          <button class="btn" data-act="edit">Editar</button>
+          <button class="btn btn-danger" data-act="delete">Excluir</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Contato e sistema</h3></div>
+        <div class="panel-body">
+          <dl class="info">
+            <div><dt>Telefone</dt><dd>${c.telefone ? `${esc(c.telefone)}${wa ? ` · <a href="${wa}" target="_blank" rel="noopener">WhatsApp</a>`:''}` : '—'}</dd></div>
+            <div><dt>E-mail</dt><dd>${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '—'}</dd></div>
+            <div><dt>Cidade</dt><dd>${esc(c.cidade)||'—'}</dd></div>
+            <div><dt>Hospedado em</dt><dd>${esc(c.hospedagem)||'—'}</dd></div>
+            <div><dt>Link / domínio</dt><dd>${link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(c.dominio)}</a>` : '—'}</dd></div>
+            <div><dt>Tipo de sistema</dt><dd>${esc(c.tipoSistema)||'—'}</dd></div>
+            <div><dt>Cliente desde</dt><dd>${fmtDate(c.inicio)}</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Sobre a empresa</h3></div>
+        <div class="panel-body"><p class="about ${c.sobre?'':'none'}">${c.sobre ? esc(c.sobre) : 'Nada anotado ainda.'}</p></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>Valores</h3></div>
+        <div class="panel-body">
+          <dl class="money">
+            <div><dt>Projeto</dt><dd>${brl(c.valorProjeto)}</dd></div>
+            <div><dt>Mensalidade</dt><dd>${brl(c.mensalidade)}</dd></div>
+            <div><dt>Vencimento</dt><dd>${c.vencimento ? 'Dia ' + esc(c.vencimento) : '—'}</dd></div>
+            <div><dt>Forma</dt><dd>${esc(c.formaPagamento)||'—'}</dd></div>
+            <div><dt>Total recebido</dt><dd style="color:var(--accent)">${brl(totalPago)}</dd></div>
+            <div><dt>Em aberto</dt><dd style="color:${totalAberto?'var(--warn)':'inherit'}">${brl(totalAberto)}</dd></div>
+          </dl>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Lançamentos</h3>
+          <button class="btn btn-sm btn-primary" data-act="add-pay">Registrar lançamento</button>
+        </div>
+        ${pays.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Data</th><th>Descrição</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead>
+          <tbody>${pays.map(p => `
+            <tr>
+              <td>${fmtDate(p.data)}</td>
+              <td>${esc(p.descricao)||'—'}</td>
+              <td class="num">${brl(p.valor)}</td>
+              <td><button class="pay-toggle" data-act="toggle-pay" data-pid="${p.id}" title="Clique para alterar">
+                <span class="tag ${p.pago?'tag-ativo':'tag-pausado'}">${p.pago?'Pago':'Pendente'}</span></button></td>
+              <td><div class="row-actions">
+                <button class="btn btn-sm btn-ghost" data-act="edit-pay" data-pid="${p.id}">Editar</button>
+                <button class="btn btn-sm btn-ghost btn-danger" data-act="del-pay" data-pid="${p.id}">Excluir</button>
+              </div></td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>` : `<div class="panel-body" style="color:var(--muted)">Nenhum lançamento. Registre entradas, mensalidades ou cobranças pendentes.</div>`}
+      </div>
+
+      ${c.obs ? `<div class="panel"><div class="panel-head"><h3>Observações</h3></div><div class="panel-body"><p class="about">${esc(c.obs)}</p></div></div>` : ''}
+    `;
+  }
+
+  /* ---------- Cliente ---------- */
+  function openClient(id){
+    editingClientId = id || null;
+    const f = $('#formClient'); f.reset();
+    const c = id ? getClient(id) : null;
+    $('#dlgClientTitle').textContent = c ? 'Editar cliente' : 'Novo cliente';
+    if(c) [...f.elements].forEach(el => { if(el.name && c[el.name] !== undefined) el.value = c[el.name]; });
+    else { f.status.value = 'ativo'; f.inicio.value = today(); }
+    $('#dlgClient').showModal();
+    f.nome.focus();
+  }
+
+  $('#formClient').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = e.target;
+    const data = Object.fromEntries(new FormData(f));
+    data.nome = data.nome.trim();
+    if(!data.nome) return f.nome.focus();
+    ['valorProjeto','mensalidade'].forEach(k => data[k] = data[k] === '' ? 0 : Number(data[k]));
+
+    if(editingClientId){
+      Object.assign(getClient(editingClientId), data, { atualizadoEm: new Date().toISOString() });
+      toast('Cliente atualizado');
+    }else{
+      const c = { id: uid(), ...data, pagamentos: [], criadoEm: new Date().toISOString() };
+      db.clientes.push(c); selectedId = c.id;
+      toast('Cliente salvo');
+    }
+    $('#dlgClient').close(); save();
+  });
+
+  /* ---------- Lançamentos ---------- */
+  function openPay(pid){
+    const c = getClient(selectedId); if(!c) return;
+    editingPayId = pid || null;
+    const f = $('#formPay'); f.reset();
+    const p = pid ? c.pagamentos.find(x => x.id === pid) : null;
+    $('#dlgPayTitle').textContent = p ? 'Editar lançamento' : 'Registrar lançamento';
+    f.data.value = p?.data || today();
+    f.valor.value = p ? p.valor : (c.mensalidade || '');
+    f.descricao.value = p?.descricao || (c.mensalidade ? 'Mensalidade' : '');
+    f.pago.checked = p ? !!p.pago : true;
+    $('#dlgPay').showModal();
+    f.valor.focus();
+  }
+
+  $('#formPay').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = e.target, c = getClient(selectedId);
+    const data = { data: f.data.value, valor: Number(f.valor.value)||0, descricao: f.descricao.value.trim(), pago: f.pago.checked };
+    c.pagamentos = c.pagamentos || [];
+    if(editingPayId) Object.assign(c.pagamentos.find(p => p.id === editingPayId), data);
+    else c.pagamentos.push({ id: uid(), ...data });
+    $('#dlgPay').close(); toast('Lançamento salvo'); save();
+  });
+
+  /* ---------- Eventos gerais ---------- */
+  $('#btnNew').addEventListener('click', () => openClient());
+  $('#search').addEventListener('input', renderList);
+  $('#filterStatus').addEventListener('change', renderList);
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
+
+  $('#list').addEventListener('click', e => {
+    const b = e.target.closest('button[data-id]'); if(!b) return;
+    selectedId = b.dataset.id; renderList(); renderDetail();
+    if(window.innerWidth <= 860) $('#detail').scrollIntoView({behavior:'smooth'});
+  });
+
+  $('#detail').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if(!b) return;
+    const c = getClient(selectedId), pid = b.dataset.pid;
+    switch(b.dataset.act){
+      case 'new': openClient(); break;
+      case 'edit': openClient(selectedId); break;
+      case 'delete':
+        if(confirm(`Excluir ${c.nome}? Essa ação não pode ser desfeita.`)){
+          db.clientes = db.clientes.filter(x => x.id !== selectedId);
+          selectedId = db.clientes[0]?.id || null; toast('Cliente excluído'); save();
+        } break;
+      case 'add-pay': openPay(); break;
+      case 'edit-pay': openPay(pid); break;
+      case 'toggle-pay': { const p = c.pagamentos.find(x => x.id === pid); p.pago = !p.pago; save(); break; }
+      case 'del-pay':
+        if(confirm('Excluir este lançamento?')){ c.pagamentos = c.pagamentos.filter(x => x.id !== pid); toast('Lançamento excluído'); save(); }
+        break;
+    }
+  });
+
+  /* ---------- JSON ---------- */
+  $('#btnExport').addEventListener('click', () => {
+    const payload = { app: 'carteira-clientes', versao: 1, exportadoEm: new Date().toISOString(), clientes: db.clientes };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `clientes-${today()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast('JSON baixado');
+  });
+
+  $('#btnImport').addEventListener('click', () => $('#fileInput').click());
+  $('#fileInput').addEventListener('change', async e => {
+    const file = e.target.files[0]; e.target.value = '';
+    if(!file) return;
+    try{
+      const data = JSON.parse(await file.text());
+      const lista = Array.isArray(data) ? data : data.clientes;
+      if(!Array.isArray(lista)) throw new Error();
+      lista.forEach(c => { c.id = c.id || uid(); c.pagamentos = c.pagamentos || []; c.status = c.status || 'ativo'; c.nome = c.nome || 'Sem nome'; });
+
+      let substituir = true;
+      if(db.clientes.length){
+        substituir = confirm(`O arquivo tem ${lista.length} cliente(s).\n\nOK = substituir tudo pelo arquivo\nCancelar = juntar com os clientes atuais`);
+      }
+      if(substituir) db.clientes = lista;
+      else {
+        const ids = new Set(db.clientes.map(c => c.id));
+        lista.forEach(c => { if(ids.has(c.id)) Object.assign(getClient(c.id), c); else db.clientes.push(c); });
+      }
+      selectedId = db.clientes[0]?.id || null;
+      save(); toast(`${lista.length} cliente(s) importado(s)`);
+    }catch{
+      alert('Esse arquivo não é um JSON válido da Carteira de Clientes. Confira se é o arquivo baixado pelo botão "Baixar JSON".');
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
